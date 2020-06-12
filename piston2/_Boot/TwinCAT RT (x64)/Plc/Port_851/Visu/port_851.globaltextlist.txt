@@ -1,0 +1,8 @@
+Id;Default
+997;%s
+992;BKW
+829;FWD
+331;nSensor
+871;OFF
+306;pSensor
+970;Reset
