@@ -22,8 +22,7 @@ VAR
 	sState: STRING; // state
 	errormessage: STRING(255);
 	testError: BOOL; // testing rise error
-	// FWD or BKW sensors error condition
-	condition: BOOL;
+
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -36,29 +35,20 @@ timeOutTimer(IN:= state=ePiston.running AND
 				  (((task=ePiston.bkw) AND NOT nSensor) OR 
 				  ((task=ePiston.fwd) AND NOT pSensor)),
 			 PT:=timeout);
-IF (state=episton.bkw OR state=ePiston.fwd) AND NOT condition THEN
-	M_riseError(concat(pistonname, ' - check sensors'));
-END_IF
 
 CASE state OF
 	ePiston.off:
-		pOut := FALSE;
-		nOut := FALSE;
-		condition := TRUE;
+		M_off();
 	ePiston.running:
 		IF M_run() THEN
 			execute := FALSE;
 			M_SetState(task);
 		END_IF
-		condition := TRUE;
 	ePiston.fwd:
-		condition := pSensor AND NOT nSensor;
-
+		M_fwd();
 	ePiston.bkw:
-		condition := nSensor AND NOT pSensor;
-
+		M_bkw();
 	ePiston.error: // no action - wait for reset method
-		condition := TRUE;
 END_CASE
 
 busy := state = ePiston.running;
@@ -70,7 +60,7 @@ IF trExecute.Q AND state<>ePiston.error AND state<>ePiston.running THEN
 			M_SetState(ePiston.running);
 END_IF
 
-IF (NOT error) AND testError THEN // testing
+IF NOT error AND testError THEN // testing
 	M_riseError('testing error');
 END_IF
 
@@ -78,140 +68,85 @@ END_IF
 stepMode := FALSE; // temporary
 trStepPB(CLK:=stepPB);
 nextStep := NOT stepMode OR trStepPB.Q; // used in M_SetState method  
-
-	(*	IF (state=episton.bkw OR state=ePiston.fwd) AND NOT condition THEN
-			M_riseError(concat(pistonname, ' - check sensors'));
-		END_IF *)]]></ST>
+]]></ST>
     </Implementation>
     <Folder Name="PRIVATE" Id="{61449881-cae0-4ebb-b34b-72e2db08101a}" />
-    <Method Name="bkw" Id="{824a11d5-4a48-469b-931c-511dd1b840fd}">
+    <Folder Name="PUBLIC" Id="{4020de6b-bfe2-4690-90ea-5b2ee17be787}" />
+    <Method Name="bkw" Id="{824a11d5-4a48-469b-931c-511dd1b840fd}" FolderPath="PUBLIC\">
       <Declaration><![CDATA[METHOD PUBLIC bkw : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running THEN
+        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running
+	AND state<>ePiston.bkw
+	 THEN
 	task := ePiston.bkw;
 	execute := TRUE;
 END_IF]]></ST>
       </Implementation>
     </Method>
-    <Method Name="fwd" Id="{0a956e4d-e0bc-4c11-a9b7-662ed6e9c9a2}">
+    <Method Name="fwd" Id="{0a956e4d-e0bc-4c11-a9b7-662ed6e9c9a2}" FolderPath="PUBLIC\">
       <Declaration><![CDATA[METHOD PUBLIC fwd : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running THEN
+        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running
+	AND state<>ePiston.fwd
+	 THEN
 	task := ePiston.fwd;
 	execute := TRUE;
 END_IF]]></ST>
       </Implementation>
     </Method>
-    <Property Name="isBKW" Id="{bffeb64a-d2e4-4cc0-a3e6-a605b64f5112}">
-      <Declaration><![CDATA[PROPERTY isBKW : bool]]></Declaration>
-      <Get Name="Get" Id="{e45d8700-1971-451c-bbcc-01c228dd4cda}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[isBKW := state = ePiston.bkw;
-]]></ST>
-        </Implementation>
-      </Get>
-      <Set Name="Set" Id="{ac5373e1-7c77-436a-9822-daeaff886617}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[]]></ST>
-        </Implementation>
-      </Set>
-    </Property>
-    <Property Name="isError" Id="{44048e69-670c-42c3-b334-d726f7dea17c}">
-      <Declaration><![CDATA[PROPERTY isError : bool]]></Declaration>
-      <Get Name="Get" Id="{ca6ad7af-9b99-40aa-b89e-02326841f118}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[iserror := error OR (state = ePiston.error);
-]]></ST>
-        </Implementation>
-      </Get>
-      <Set Name="Set" Id="{12da22ae-3d37-4f93-bd80-2c5a993390ea}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[]]></ST>
-        </Implementation>
-      </Set>
-    </Property>
-    <Property Name="isFWD" Id="{e0e42add-b0d4-4f3f-8504-2c2d2138e79a}">
-      <Declaration><![CDATA[PROPERTY isFWD : bool]]></Declaration>
-      <Get Name="Get" Id="{fb4b9205-7c65-4247-a1bb-2c88355f11db}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[isFWD := state = ePiston.fwd;
-]]></ST>
-        </Implementation>
-      </Get>
-      <Set Name="Set" Id="{401e389e-a021-4955-ab56-fbcad45f9830}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[]]></ST>
-        </Implementation>
-      </Set>
-    </Property>
-    <Property Name="isOFF" Id="{a163fae3-ec5c-4de0-9b4e-68d337f2dd9e}">
-      <Declaration><![CDATA[PROPERTY isOFF : bool]]></Declaration>
-      <Get Name="Get" Id="{e65ac3fe-1f65-4ea2-8403-7799f30f8e0d}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[isOFF := state = ePiston.off;
-]]></ST>
-        </Implementation>
-      </Get>
-      <Set Name="Set" Id="{4bb6b075-33dd-473e-ba14-7dbea4eb0fb4}">
-        <Declaration><![CDATA[VAR
-END_VAR
-]]></Declaration>
-        <Implementation>
-          <ST><![CDATA[]]></ST>
-        </Implementation>
-      </Set>
-    </Property>
-    <Method Name="M_bkw" Id="{f35297cb-0266-447e-a07f-fc4ef82ed81a}" FolderPath="PRIVATE\">
+    <Method Name="M_bkw" Id="{3af92d9f-7b09-4f80-84a4-104ebc223884}" FolderPath="PRIVATE\">
       <Declaration><![CDATA[METHOD PRIVATE M_bkw : BOOL
 VAR_INPUT
 END_VAR
+VAR
+	bkwState : BOOL;
+END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[M_bkw := false;
-pout := FALSE;
+        <ST><![CDATA[pout := FALSE;
 nout := TRUE;
-task := ePiston.bkw;
 
-]]></ST>
+bkwState := nSensor AND NOT pSensor;
+
+IF state=episton.bkw AND NOT bkwState THEN
+	M_riseError(concat(pistonname, ' error in BKW - check sensors'));
+END_IF]]></ST>
       </Implementation>
     </Method>
-    <Method Name="M_fwd" Id="{668c4683-823c-40de-8740-308fae231583}" FolderPath="PRIVATE\">
+    <Method Name="M_fwd" Id="{54d50cd5-59ac-4917-90e2-80082ce6663f}" FolderPath="PRIVATE\">
       <Declaration><![CDATA[METHOD PRIVATE M_fwd : BOOL
 VAR_INPUT
+END_VAR
+VAR
+	fwdState : BOOL;
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[pout := TRUE;
 nout := FALSE;
-task := ePiston.fwd;
+
+fwdState := pSensor AND NOT nSensor;
+
+IF state=ePiston.fwd AND NOT fwdState THEN
+	M_riseError(concat(pistonname, ' error in FWD - check sensors'));
+END_IF
 ]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="M_off" Id="{bdccd2e6-762d-498f-b2f6-acc0769d10ce}" FolderPath="PRIVATE\">
+      <Declaration><![CDATA[METHOD PRIVATE M_off : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[pOut := FALSE;
+nOut := FALSE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="M_riseError" Id="{7a55061b-e795-4356-8e11-89a70f30e0ac}" FolderPath="PRIVATE\">
@@ -239,23 +174,24 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[CASE task OF
-	ePiston.off:
-		M_run := TRUE;
-		RETURN;
-	ePiston.bkw:
-		M_bkw();
-	ePiston.fwd:
-		M_fwd();
-END_CASE
-
-IF delayTimer.Q THEN
+        <ST><![CDATA[IF delayTimer.Q THEN
 	M_run := TRUE;	
 ELSIF timeOutTimer.Q THEN
 	errormessage := CONCAT(pistonName, ' piston Timeout in task:');
 	errormessage := CONCAT(errormessage , stateToString(task));
 	M_riseError(errormessage);
-END_IF]]></ST>
+END_IF
+
+CASE task OF
+	ePiston.off:
+		M_off();
+		M_run := TRUE;
+	ePiston.bkw:
+		M_bkw();
+	ePiston.fwd:
+		M_fwd();
+END_CASE
+]]></ST>
       </Implementation>
     </Method>
     <Method Name="M_SetState" Id="{fff2b4ea-d767-4297-83f8-a3b94f560f77}" FolderPath="PRIVATE\">
@@ -273,20 +209,22 @@ END_IF
  ]]></ST>
       </Implementation>
     </Method>
-    <Method Name="off" Id="{78b1207f-ec0c-4c4c-87dd-ed6889887f33}">
+    <Method Name="off" Id="{78b1207f-ec0c-4c4c-87dd-ed6889887f33}" FolderPath="PUBLIC\">
       <Declaration><![CDATA[METHOD PUBLIC off : BOOL
 VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running THEN
+        <ST><![CDATA[IF NOT execute AND state<>ePiston.error AND state<>ePiston.running 
+	AND state<>ePiston.off
+	THEN
 	task := ePiston.off;
 	execute := TRUE;
 END_IF
 ]]></ST>
       </Implementation>
     </Method>
-    <Method Name="reset" Id="{f4efaf27-7af3-4aa9-a520-b46aadb0ac18}">
+    <Method Name="reset" Id="{f4efaf27-7af3-4aa9-a520-b46aadb0ac18}" FolderPath="PUBLIC\">
       <Declaration><![CDATA[METHOD reset : BOOL
 VAR_INPUT
 END_VAR
@@ -324,62 +262,50 @@ END_CASE
       </Implementation>
     </Method>
     <LineIds Name="Piston">
-      <LineId Id="212" Count="8" />
-      <LineId Id="273" Count="1" />
-      <LineId Id="272" Count="0" />
-      <LineId Id="221" Count="18" />
-      <LineId Id="275" Count="0" />
-      <LineId Id="240" Count="0" />
+      <LineId Id="212" Count="11" />
+      <LineId Id="225" Count="0" />
+      <LineId Id="227" Count="4" />
+      <LineId Id="233" Count="0" />
+      <LineId Id="301" Count="0" />
+      <LineId Id="236" Count="0" />
+      <LineId Id="303" Count="0" />
+      <LineId Id="239" Count="1" />
       <LineId Id="245" Count="17" />
-      <LineId Id="269" Count="2" />
       <LineId Id="133" Count="0" />
     </LineIds>
     <LineIds Name="Piston.bkw">
-      <LineId Id="8" Count="2" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="9" Count="1" />
       <LineId Id="7" Count="0" />
     </LineIds>
     <LineIds Name="Piston.fwd">
+      <LineId Id="8" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+    <LineIds Name="Piston.M_bkw">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="11" Count="0" />
       <LineId Id="8" Count="2" />
       <LineId Id="7" Count="0" />
     </LineIds>
-    <LineIds Name="Piston.isBKW.Get">
-      <LineId Id="2" Count="0" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isBKW.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isError.Get">
-      <LineId Id="2" Count="0" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isError.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isFWD.Get">
-      <LineId Id="2" Count="0" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isFWD.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isOFF.Get">
-      <LineId Id="2" Count="0" />
-      <LineId Id="5" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.isOFF.Set">
-      <LineId Id="2" Count="0" />
-    </LineIds>
-    <LineIds Name="Piston.M_bkw">
-      <LineId Id="5" Count="2" />
-      <LineId Id="10" Count="0" />
-      <LineId Id="24" Count="0" />
-      <LineId Id="14" Count="0" />
-    </LineIds>
     <LineIds Name="Piston.M_fwd">
-      <LineId Id="6" Count="1" />
-      <LineId Id="10" Count="0" />
-      <LineId Id="9" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="12" Count="1" />
+      <LineId Id="8" Count="2" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="11" Count="0" />
+    </LineIds>
+    <LineIds Name="Piston.M_off">
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_riseError">
       <LineId Id="21" Count="0" />
@@ -392,16 +318,16 @@ END_CASE
       <LineId Id="6" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_run">
-      <LineId Id="5" Count="0" />
-      <LineId Id="7" Count="0" />
-      <LineId Id="34" Count="1" />
-      <LineId Id="9" Count="0" />
-      <LineId Id="16" Count="0" />
-      <LineId Id="15" Count="0" />
-      <LineId Id="19" Count="0" />
-      <LineId Id="8" Count="0" />
-      <LineId Id="27" Count="6" />
+      <LineId Id="28" Count="5" />
       <LineId Id="26" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="44" Count="1" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="48" Count="2" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="42" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_SetState">
       <LineId Id="16" Count="0" />
@@ -412,6 +338,8 @@ END_CASE
     </LineIds>
     <LineIds Name="Piston.off">
       <LineId Id="5" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="13" Count="0" />
       <LineId Id="8" Count="0" />
       <LineId Id="6" Count="0" />
       <LineId Id="9" Count="0" />

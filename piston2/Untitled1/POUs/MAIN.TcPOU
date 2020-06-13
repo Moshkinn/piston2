@@ -8,8 +8,8 @@ VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[p1(delay := T#1S, timeout := T#3S, pistonName := 'linear1');
-p2(delay := T#1S, timeout := T#3S, pistonName := 'drawer2');
+      <ST><![CDATA[p1(delay := T#2S, timeout := T#4S, pistonName := 'linear1');
+p2(delay := T#2S, timeout := T#4S, pistonName := 'drawer2');
 ]]></ST>
     </Implementation>
     <LineIds Name="MAIN">
