@@ -3,19 +3,45 @@
   <POU Name="MAIN" Id="{d7a22d48-d601-42e4-8b6f-48cd53a4aca2}" SpecialFunc="None">
     <Declaration><![CDATA[PROGRAM MAIN
 VAR
-	p1, p2 : Piston;
-
+	p1	: Piston;
+	pSensor: BOOL;
+	nSensor: BOOL;
+	pOut: BOOL;
+	nOut: BOOL;
+	timeOut: TIME := T#5S;
+	delay: TIME := T#2S;
+	noSensorTimeout: TIME := T#2S;
+	pbSetTimers: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[p1(delay := T#2S, timeout := T#4S, pistonName := 'linear1');
-p2(delay := T#2S, timeout := T#4S, pistonName := 'drawer2');
+      <ST><![CDATA[
+p1(
+	pSensor:= pSensor , 
+	nSensor:= nSensor, 
+	pistonName:= 'Test Piston' , 
+	pOut=> pOut, 
+	nOut=> nOut, 
+	error=> , 
+	isBusy=> , 
+	errormessage=> , 
+	sState=> , 
+	isBKW=> , 
+	isFWD=> , 
+	isOFF=> );
+	
+IF pbSetTimers THEN
+	p1.setTimers(T#5S, T#5S, T#5S);
+END_IF
 ]]></ST>
     </Implementation>
     <LineIds Name="MAIN">
-      <LineId Id="2" Count="0" />
-      <LineId Id="32" Count="0" />
-      <LineId Id="52" Count="0" />
+      <LineId Id="102" Count="4" />
+      <LineId Id="110" Count="7" />
+      <LineId Id="80" Count="0" />
+      <LineId Id="126" Count="0" />
+      <LineId Id="129" Count="2" />
+      <LineId Id="133" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

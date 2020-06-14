@@ -5,70 +5,84 @@
 VAR_INPUT
 	pSensor, nSensor : BOOL;
 	pistonName : STRING;
-	timeOut, delay : TIME;
 END_VAR
 VAR_OUTPUT
-	pOut, nOut, error, busy : BOOL;
+	pOut, nOut, error, isBusy : BOOL;
+	errormessage: STRING(255);
+	sState: STRING; // state of the piston
+	isBKW: BOOL;
+	isFWD: BOOL;
+	isOFF: BOOL;
 END_VAR
 VAR
-	timeOutTimer, delayTimer : ton;
-	state : INT; // ePiston
-	task : INT; // ePiston
+	_timeOut : TIME:= T#5S; // running the task timeout
+	_delay : TIME:= T#1S; // in position (on sensor) timeout
+	_noSensorTimeout : TIME:= T#2S; // sensor lost in FWD or BKW state
+	timeOutTimer, delayTimer, noSensorTimeoutTimer : ton;
+	state,task : ePiston;
 	execute: BOOL; // run method with task input
-	trStepPB, trExecute: R_trig;
+	trExecute: R_trig;
+	// testing rise error
+	testError: BOOL; 
+	//STEP mode - no use in this FB
 	nextStep: BOOL;
 	stepMode: BOOL;
 	stepPB: BOOL;
-	sState: STRING; // state
-	errormessage: STRING(255);
-	testError: BOOL; // testing rise error
-
+	trStepPB: R_trig;
+	sTask: STRING;
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[delayTimer(IN:= state=ePiston.running AND 
 				(((task=ePiston.bkw) AND nSensor) OR
 				((task=ePiston.fwd) AND pSensor)),
- 		   PT:=delay);
-
+ 		   PT:=_delay);
+////////////////////////////////////////////////////////////////
 timeOutTimer(IN:= state=ePiston.running AND
 				  (((task=ePiston.bkw) AND NOT nSensor) OR 
 				  ((task=ePiston.fwd) AND NOT pSensor)),
-			 PT:=timeout);
-
+			 PT:=_timeOut);
+////////////////////////////////////////////////////////////////
+noSensorTimeoutTimer(IN:= (state=ePiston.fwd AND NOT pSensor) OR 
+						  (state=episton.bkw AND NOT nSensor),
+			 		 PT:= _noSensorTimeout );
+////////////////////////////////////////////////////////////////
 CASE state OF
-	ePiston.off:
+	ePiston.off: // wait for execute trigger
 		M_off();
 	ePiston.running:
 		IF M_run() THEN
 			execute := FALSE;
 			M_SetState(task);
 		END_IF
-	ePiston.fwd:
+	ePiston.fwd: // wait for execute trigger
 		M_fwd();
-	ePiston.bkw:
+	ePiston.bkw: // wait for execute trigger
 		M_bkw();
-	ePiston.error: // no action - wait for reset method
+	ePiston.error: // wait for reset method (from outside)
+		M_off();
 END_CASE
-
-busy := state = ePiston.running;
-
-sstate := stateToString(state);
-
+///////////////////////////////////////////////////////////////////////
+statesIndication();
+///////////////////////////////////////////////////////////////////////
 trExecute(clk:=execute);
 IF trExecute.Q AND state<>ePiston.error AND state<>ePiston.running THEN
 			M_SetState(ePiston.running);
 END_IF
-
-IF NOT error AND testError THEN // testing
-	M_riseError('testing error');
+///////////////////////////////////////////////////////////////////////
+IF pSensor AND nSensor THEN
+	M_riseError('- 2 sensors in one time - not acceptable!');
 END_IF
-
+///////////////////////////////////////////////////////////////////////
+IF NOT error AND testError THEN // testing
+	M_riseError('- testing error');
+END_IF
+///////////////////////////////////////////////////////////////////////
 // STEP MODE
-stepMode := FALSE; // temporary
+stepMode := FALSE; // STEP MODE not used
 trStepPB(CLK:=stepPB);
-nextStep := NOT stepMode OR trStepPB.Q; // used in M_SetState method  
-]]></ST>
+nextStep := NOT stepMode OR trStepPB.Q; // for the M_SetState method  
+///////////////////////////////////////////////////////////////////////]]></ST>
     </Implementation>
     <Folder Name="PRIVATE" Id="{61449881-cae0-4ebb-b34b-72e2db08101a}" />
     <Folder Name="PUBLIC" Id="{4020de6b-bfe2-4690-90ea-5b2ee17be787}" />
@@ -105,17 +119,15 @@ END_IF]]></ST>
 VAR_INPUT
 END_VAR
 VAR
-	bkwState : BOOL;
+	//bkwState : BOOL;
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[pout := FALSE;
 nout := TRUE;
 
-bkwState := nSensor AND NOT pSensor;
-
-IF state=episton.bkw AND NOT bkwState THEN
-	M_riseError(concat(pistonname, ' error in BKW - check sensors'));
+IF state=ePiston.bkw AND (noSensorTimeoutTimer.Q OR pSensor) THEN
+	M_riseError('- error in BKW - check the sensor');
 END_IF]]></ST>
       </Implementation>
     </Method>
@@ -124,17 +136,15 @@ END_IF]]></ST>
 VAR_INPUT
 END_VAR
 VAR
-	fwdState : BOOL;
+	//fwdState : BOOL;
 END_VAR
 ]]></Declaration>
       <Implementation>
         <ST><![CDATA[pout := TRUE;
 nout := FALSE;
 
-fwdState := pSensor AND NOT nSensor;
-
-IF state=ePiston.fwd AND NOT fwdState THEN
-	M_riseError(concat(pistonname, ' error in FWD - check sensors'));
+IF state=ePiston.fwd AND (noSensorTimeoutTimer.Q OR nSensor) THEN
+	M_riseError('- error in FWD - check the sensor');
 END_IF
 ]]></ST>
       </Implementation>
@@ -156,9 +166,8 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[pOut := FALSE;
-nOut := FALSE;
-errormessage := message;
+        <ST><![CDATA[errormessage := CONCAT(pistonName, message);
+
 IF NOT error THEN
 	error := TRUE;
 	M_SetState(episton.error);
@@ -174,15 +183,7 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF delayTimer.Q THEN
-	M_run := TRUE;	
-ELSIF timeOutTimer.Q THEN
-	errormessage := CONCAT(pistonName, ' piston Timeout in task:');
-	errormessage := CONCAT(errormessage , stateToString(task));
-	M_riseError(errormessage);
-END_IF
-
-CASE task OF
+        <ST><![CDATA[CASE task OF
 	ePiston.off:
 		M_off();
 		M_run := TRUE;
@@ -191,13 +192,21 @@ CASE task OF
 	ePiston.fwd:
 		M_fwd();
 END_CASE
+sTask := stateToString(task);
+
+IF delayTimer.Q THEN
+	sTask := '';
+	M_run := TRUE;
+ELSIF timeOutTimer.Q THEN
+	M_riseError(CONCAT('- timeout in the task: ' , stateToString(task)));
+END_IF
 ]]></ST>
       </Implementation>
     </Method>
     <Method Name="M_SetState" Id="{fff2b4ea-d767-4297-83f8-a3b94f560f77}" FolderPath="PRIVATE\">
       <Declaration><![CDATA[METHOD PRIVATE M_SetState
 VAR_INPUT
-	eNextState : INT;
+	eNextState : ePiston; //INT;
 END_VAR
 ]]></Declaration>
       <Implementation>
@@ -239,6 +248,31 @@ END_IF
 ]]></ST>
       </Implementation>
     </Method>
+    <Method Name="setTimers" Id="{4bdac6d6-8ff1-4608-9e37-15cf81dc8ae2}" FolderPath="PUBLIC\">
+      <Declaration><![CDATA[METHOD PUBLIC setTimers : BOOL
+VAR_INPUT
+	timeOut : TIME; // running the task timeout
+	delay : TIME; // in position (on sensor) timeout
+	noSensorTimeout : TIME; // sensor lost in FWD or BKW state
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_timeOut			:= timeOut;
+_delay				:= delay;
+_noSensorTimeout	:= noSensorTimeout;
+]]></ST>
+      </Implementation>
+    </Method>
+    <Action Name="statesIndication" Id="{f499436d-ad82-4e21-a113-f5972912f63c}">
+      <Implementation>
+        <ST><![CDATA[isBKW := state = ePiston.bkw;
+isFWD := state = ePiston.fwd;
+isOFF := state = ePiston.off;
+isBusy := state = ePiston.running;
+
+sState := stateToString(state);]]></ST>
+      </Implementation>
+    </Action>
     <Method Name="stateToString" Id="{66c0262a-ead9-42bb-aedb-1a3dcb5e8ca8}" FolderPath="PRIVATE\">
       <Declaration><![CDATA[METHOD PRIVATE stateToString : string
 VAR_INPUT
@@ -256,21 +290,14 @@ END_VAR
 	ePiston.off:
 		stateToString := 'OFF';
 	ePiston.running:
-		stateToString := 'RUNNING';
+		stateToString :=concat('RUNNING ', sTask);
 END_CASE
 ]]></ST>
       </Implementation>
     </Method>
     <LineIds Name="Piston">
-      <LineId Id="212" Count="11" />
-      <LineId Id="225" Count="0" />
-      <LineId Id="227" Count="4" />
-      <LineId Id="233" Count="0" />
-      <LineId Id="301" Count="0" />
-      <LineId Id="236" Count="0" />
-      <LineId Id="303" Count="0" />
-      <LineId Id="239" Count="1" />
-      <LineId Id="245" Count="17" />
+      <LineId Id="600" Count="9" />
+      <LineId Id="612" Count="38" />
       <LineId Id="133" Count="0" />
     </LineIds>
     <LineIds Name="Piston.bkw">
@@ -290,15 +317,12 @@ END_CASE
     <LineIds Name="Piston.M_bkw">
       <LineId Id="6" Count="0" />
       <LineId Id="5" Count="0" />
-      <LineId Id="12" Count="0" />
-      <LineId Id="11" Count="0" />
       <LineId Id="8" Count="2" />
       <LineId Id="7" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_fwd">
       <LineId Id="6" Count="0" />
       <LineId Id="5" Count="0" />
-      <LineId Id="12" Count="1" />
       <LineId Id="8" Count="2" />
       <LineId Id="7" Count="0" />
       <LineId Id="11" Count="0" />
@@ -308,9 +332,7 @@ END_CASE
       <LineId Id="5" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_riseError">
-      <LineId Id="21" Count="0" />
-      <LineId Id="20" Count="0" />
-      <LineId Id="22" Count="0" />
+      <LineId Id="29" Count="1" />
       <LineId Id="13" Count="0" />
       <LineId Id="19" Count="0" />
       <LineId Id="24" Count="0" />
@@ -318,16 +340,20 @@ END_CASE
       <LineId Id="6" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_run">
-      <LineId Id="28" Count="5" />
-      <LineId Id="26" Count="0" />
-      <LineId Id="41" Count="0" />
       <LineId Id="44" Count="1" />
       <LineId Id="55" Count="0" />
       <LineId Id="46" Count="0" />
       <LineId Id="48" Count="2" />
       <LineId Id="54" Count="0" />
       <LineId Id="52" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="71" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="62" Count="1" />
+      <LineId Id="66" Count="0" />
       <LineId Id="42" Count="0" />
+      <LineId Id="72" Count="0" />
     </LineIds>
     <LineIds Name="Piston.M_SetState">
       <LineId Id="16" Count="0" />
@@ -353,10 +379,19 @@ END_CASE
       <LineId Id="11" Count="0" />
       <LineId Id="6" Count="0" />
     </LineIds>
+    <LineIds Name="Piston.setTimers">
+      <LineId Id="5" Count="0" />
+      <LineId Id="9" Count="2" />
+    </LineIds>
+    <LineIds Name="Piston.statesIndication">
+      <LineId Id="1" Count="3" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="6" Count="0" />
+    </LineIds>
     <LineIds Name="Piston.stateToString">
       <LineId Id="5" Count="1" />
       <LineId Id="8" Count="8" />
-      <LineId Id="7" Count="0" />
+      <LineId Id="24" Count="0" />
       <LineId Id="18" Count="0" />
     </LineIds>
   </POU>

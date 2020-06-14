@@ -16,8 +16,23 @@
               <l n="LanguageTexts" t="ArrayList" />
             </o>
             <o>
+              <v n="TextID">"916"</v>
+              <v n="TextDefault">"delay"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
               <v n="TextID">"829"</v>
               <v n="TextDefault">"FWD"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
+              <v n="TextID">"203"</v>
+              <v n="TextDefault">"noSensorTimeout"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
+              <v n="TextID">"843"</v>
+              <v n="TextDefault">"nOUT"</v>
               <l n="LanguageTexts" t="ArrayList" />
             </o>
             <o>
@@ -31,6 +46,16 @@
               <l n="LanguageTexts" t="ArrayList" />
             </o>
             <o>
+              <v n="TextID">"406"</v>
+              <v n="TextDefault">"PB set timers"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
+              <v n="TextID">"609"</v>
+              <v n="TextDefault">"pOUT"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
               <v n="TextID">"306"</v>
               <v n="TextDefault">"pSensor"</v>
               <l n="LanguageTexts" t="ArrayList" />
@@ -38,6 +63,11 @@
             <o>
               <v n="TextID">"970"</v>
               <v n="TextDefault">"Reset"</v>
+              <l n="LanguageTexts" t="ArrayList" />
+            </o>
+            <o>
+              <v n="TextID">"70"</v>
+              <v n="TextDefault">"timeOut"</v>
               <l n="LanguageTexts" t="ArrayList" />
             </o>
           </l>
