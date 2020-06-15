@@ -12,6 +12,9 @@ VAR
 	delay: TIME := T#2S;
 	noSensorTimeout: TIME := T#2S;
 	pbSetTimers: BOOL;
+	testing: INT;
+	state: INT;
+	PB: BOOL;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -21,27 +24,69 @@ p1(
 	nSensor:= nSensor, 
 	pistonName:= 'Test Piston' , 
 	pOut=> pOut, 
-	nOut=> nOut, 
-	error=> , 
-	isBusy=> , 
-	errormessage=> , 
-	sState=> , 
-	isBKW=> , 
-	isFWD=> , 
-	isOFF=> );
+	nOut=> nOut
+);
 	
 IF pbSetTimers THEN
 	p1.setTimers(T#5S, T#5S, T#5S);
 END_IF
-]]></ST>
+
+CASE state OF
+	0: // wait for PB
+		p1.off();
+		IF PB THEN
+			state := 1;
+		END_IF
+	1 : // go BKW
+		p1.bkw();
+		IF p1.isBKW THEN
+			state := 2;
+		ELSIF p1.isError THEN
+			state := 900;
+		END_IF
+	2 : // go FWD
+		p1.fwd();
+		IF p1.isFWD THEN
+			state := 0;
+		ELSIF p1.isError THEN
+			state := 900;
+		END_IF
+	900: //error
+		IF PB THEN
+			p1.reset();
+		END_IF
+		IF p1.isOFF THEN
+			state := 0;
+		END_IF
+		
+END_CASE]]></ST>
     </Implementation>
     <LineIds Name="MAIN">
       <LineId Id="102" Count="4" />
-      <LineId Id="110" Count="7" />
+      <LineId Id="110" Count="0" />
       <LineId Id="80" Count="0" />
+      <LineId Id="146" Count="0" />
       <LineId Id="126" Count="0" />
       <LineId Id="129" Count="2" />
-      <LineId Id="133" Count="0" />
+      <LineId Id="147" Count="0" />
+      <LineId Id="160" Count="0" />
+      <LineId Id="176" Count="0" />
+      <LineId Id="185" Count="0" />
+      <LineId Id="177" Count="2" />
+      <LineId Id="163" Count="0" />
+      <LineId Id="166" Count="1" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="171" Count="0" />
+      <LineId Id="173" Count="2" />
+      <LineId Id="181" Count="2" />
+      <LineId Id="186" Count="1" />
+      <LineId Id="184" Count="0" />
+      <LineId Id="172" Count="0" />
+      <LineId Id="193" Count="1" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="168" Count="0" />
+      <LineId Id="189" Count="2" />
+      <LineId Id="164" Count="0" />
     </LineIds>
   </POU>
 </TcPlcObject>

@@ -3,33 +3,36 @@
   <POU Name="Piston" Id="{c14a18be-a5d9-43d9-b57d-de6b138fcbb5}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK Piston
 VAR_INPUT
-	pSensor, nSensor : BOOL;
-	pistonName : STRING;
+	pSensor		: BOOL; // FWD sensor digital input  
+	nSensor 	: BOOL; // BKW sensor digital input
+	pistonName 	: STRING;
 END_VAR
 VAR_OUTPUT
-	pOut, nOut, error, isBusy : BOOL;
+	pOut 		: BOOL; // FWD digital OUT
+	nOut 		: BOOL; // BKW digital OUT
 	errormessage: STRING(255);
-	sState: STRING; // state of the piston
-	isBKW: BOOL;
-	isFWD: BOOL;
-	isOFF: BOOL;
+	sState		: STRING; // state of the piston
+	isBKW, isFWD, isOFF, isBusy, isError: BOOL; // state indicator
+	// outputs are better then properties(for the debugging and HMI in TwinCat)
 END_VAR
 VAR
-	_timeOut : TIME:= T#5S; // running the task timeout
-	_delay : TIME:= T#1S; // in position (on sensor) timeout
-	_noSensorTimeout : TIME:= T#2S; // sensor lost in FWD or BKW state
-	timeOutTimer, delayTimer, noSensorTimeoutTimer : ton;
-	state,task : ePiston;
-	execute: BOOL; // run method with task input
-	trExecute: R_trig;
+	_error 			: BOOL;
+	_timeOut 		: TIME:= T#5S; // running the task timeout
+	_delay 			: TIME:= T#1S; // in position (on sensor) timeout
+	_noSensorTimeout: TIME:= T#2S; // sensor lost in FWD or BKW state
+	timeOutTimer, delayTimer, noSensorTimeoutTimer : TON;
+	state,task 		: ePiston;
+	sTask			: STRING;
+	execute			: BOOL; // run method with task input
+	trExecute		: R_trig;
 	// testing rise error
-	testError: BOOL; 
+	testError		: BOOL; 
+	
 	//STEP mode - no use in this FB
-	nextStep: BOOL;
-	stepMode: BOOL;
-	stepPB: BOOL;
-	trStepPB: R_trig;
-	sTask: STRING;
+	nextStep		: BOOL;
+	stepMode		: BOOL;
+	stepPB			: BOOL;
+	trStepPB		: R_trig;
 END_VAR
 ]]></Declaration>
     <Implementation>
@@ -74,7 +77,7 @@ IF pSensor AND nSensor THEN
 	M_riseError('- 2 sensors in one time - not acceptable!');
 END_IF
 ///////////////////////////////////////////////////////////////////////
-IF NOT error AND testError THEN // testing
+IF NOT _error AND testError THEN // testing
 	M_riseError('- testing error');
 END_IF
 ///////////////////////////////////////////////////////////////////////
@@ -168,8 +171,8 @@ END_VAR
       <Implementation>
         <ST><![CDATA[errormessage := CONCAT(pistonName, message);
 
-IF NOT error THEN
-	error := TRUE;
+IF NOT _error THEN
+	_error := TRUE;
 	M_SetState(episton.error);
 	//TODO log with message
 END_IF
@@ -239,10 +242,10 @@ VAR_INPUT
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF state = episton.error OR error THEN
+        <ST><![CDATA[IF state = episton.error OR _error THEN
 	M_SetState(ePiston.off);
 	execute := FALSE;
-	error := FALSE;
+	_error := FALSE;
 	errormessage := '';
 END_IF
 ]]></ST>
@@ -269,6 +272,7 @@ _noSensorTimeout	:= noSensorTimeout;
 isFWD := state = ePiston.fwd;
 isOFF := state = ePiston.off;
 isBusy := state = ePiston.running;
+isError := state = ePiston.error;
 
 sState := stateToString(state);]]></ST>
       </Implementation>
@@ -296,8 +300,7 @@ END_CASE
       </Implementation>
     </Method>
     <LineIds Name="Piston">
-      <LineId Id="600" Count="9" />
-      <LineId Id="612" Count="38" />
+      <LineId Id="711" Count="48" />
       <LineId Id="133" Count="0" />
     </LineIds>
     <LineIds Name="Piston.bkw">
@@ -385,7 +388,7 @@ END_CASE
     </LineIds>
     <LineIds Name="Piston.statesIndication">
       <LineId Id="1" Count="3" />
-      <LineId Id="7" Count="0" />
+      <LineId Id="7" Count="1" />
       <LineId Id="6" Count="0" />
     </LineIds>
     <LineIds Name="Piston.stateToString">
